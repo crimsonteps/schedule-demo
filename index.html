@@ -447,14 +447,7 @@
       "唐梅": ["周六"],
       "唐轩": ["周日"]
     };
-    const defaultBias = {
-      "王淦": "late",
-      "曹珺茹": "late",
-      "严凤阳": "early",
-      "王亚雯": "late",
-      "唐梅": "late",
-      "周蕊": "early"
-    };
+    const defaultBias = {};
     const current = {
       schedule: null,
       reasonsVisible: false,
@@ -581,7 +574,9 @@
         score += (counts.late - target) ** 2 * 22;
         score += Math.max(counts.early, counts.mid, counts.late) - Math.min(counts.early, counts.mid, counts.late);
 
-        if (bias[name] && bias[name] === cat) score += 30;
+        if (bias[name] && bias[name] === cat) {
+          score += 180 + counts[cat] * 70;
+        }
 
         if (previousDay) {
           const prevShift = schedule[name][previousDay];
@@ -643,7 +638,7 @@
         const total = counts.early + counts.mid + counts.late;
         const target = total / 3;
         score += Math.round((Math.abs(counts.early - target) + Math.abs(counts.mid - target) + Math.abs(counts.late - target)) * 10);
-        if (history[name]) score += counts[history[name]] * 8;
+        if (history[name]) score += counts[history[name]] * 35;
       });
       return score;
     }
@@ -823,6 +818,11 @@
           if (!isActive) {
             button.classList.add("active");
             button.setAttribute("aria-pressed", "true");
+          }
+          try {
+            generateSchedule();
+          } catch (error) {
+            showError(error);
           }
         });
       });
