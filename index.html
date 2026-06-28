@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>排班动态调整 Demo</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #657282;
+      --line: #d7dde5;
+      --line-strong: #aeb8c4;
+      --green: #78d328;
+      --green-dark: #3e8f12;
+      --blue: #1d6fd8;
+      --blue-soft: #e8f1ff;
+      --red: #e60000;
+      --amber: #b56b00;
+      --amber-soft: #fff4df;
+      --radius: 8px;
+      --shadow: 0 10px 28px rgba(29, 44, 62, 0.08);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    .app {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .btn.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: white;
+    }
+
+    .btn:focus-visible,
+    input:focus-visible {
+      outline: 3px solid rgba(29, 111, 216, 0.28);
+      outline-offset: 2px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(760px, 1.45fr) minmax(420px, 0.8fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      min-height: 44px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .panel-note {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      height: 40px;
+      padding: 7px 8px;
+      text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    th {
+      background: var(--green);
+      color: white;
+      font-size: 16px;
+      font-weight: 900;
+      border-color: #69bf22;
+    }
+
+    td.name {
+      text-align: left;
+      font-weight: 800;
+      background: #fafbfc;
+      color: #111820;
+    }
+
+    .shift {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .rest {
+      color: var(--red);
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .check-row td {
+      background: #f7f9fb;
+      font-size: 12px;
+      color: var(--muted);
+      height: 50px;
+      line-height: 1.35;
+      white-space: normal;
+    }
+
+    .ok {
+      color: var(--green-dark);
+      font-weight: 800;
+    }
+
+    .bad {
+      color: var(--red);
+      font-weight: 800;
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+    }
+
+    .input-table th {
+      font-size: 13px;
+      height: 34px;
+    }
+
+    .input-table td {
+      height: 38px;
+      padding: 5px;
+    }
+
+    .input-table input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+
+    .bias-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .bias-btn {
+      min-height: 30px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: white;
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .bias-btn.active {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      padding: 12px;
+    }
+
+    .rule {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px;
+      background: #fbfcfd;
+    }
+
+    .rule strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .rule span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .metric {
+      background: #fbfcfd;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .reason-panel {
+      display: none;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    .reason-panel.visible {
+      display: block;
+    }
+
+    .reason-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .reason-list li {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: white;
+      line-height: 1.45;
+    }
+
+    .reason-list li.warn {
+      border-left-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .mix-table td,
+    .mix-table th {
+      font-size: 13px;
+      height: 34px;
+    }
+
+    .error {
+      margin: 12px;
+      padding: 10px;
+      border: 1px solid #f2a1a1;
+      border-radius: var(--radius);
+      color: #9d1515;
+      background: #fff1f1;
+      display: none;
+      line-height: 1.5;
+    }
+
+    .error.visible {
+      display: block;
+    }
+
+    @media (max-width: 1100px) {
+      .grid,
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+
+      .rules,
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1>店 7 月第 1 周排班 Demo</h1>
+        <div class="subtitle">动态填写休息日和上周早/晚偏多情况，生成符合人数模板的周排班。</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="loadExampleBtn" type="button">载入示例</button>
+        <button class="btn primary" id="generateBtn" type="button">生成排班</button>
+        <button class="btn" id="toggleReasonsBtn" type="button" aria-expanded="false">展示调整原因</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">周排班表</div>
+          <div class="panel-note" id="scoreLabel">等待生成</div>
+        </div>
+        <div class="error" id="errorBox"></div>
+        <div class="table-wrap">
+          <table id="scheduleTable" aria-label="周排班表"></table>
+        </div>
+        <div class="stats-grid" id="summaryMetrics"></div>
+        <div class="reason-panel" id="reasonPanel">
+          <ul class="reason-list" id="reasonList"></ul>
+        </div>
+      </div>
+
+      <aside class="controls">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">本周休息 / 调休</div>
+            <div class="panel-note">勾选即排休</div>
+          </div>
+          <div class="table-wrap">
+            <table class="input-table" id="restInputTable" aria-label="休息日输入"></table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">上周偏多设置</div>
+            <div class="panel-note">用于本周降权</div>
+          </div>
+          <div class="table-wrap">
+            <table class="input-table" id="historyInputTable" aria-label="上周偏多设置"></table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">人数模板</div>
+            <div class="panel-note">硬规则</div>
+          </div>
+          <div class="rules">
+            <div class="rule"><strong>9 人上班</strong><span>早1 x2、早2 x1、11点 x1、中1 x1、中2 x1、晚 x3</span></div>
+            <div class="rule"><strong>7 人上班</strong><span>早1 x2、早2 x1、11点 x1、晚 x3</span></div>
+            <div class="rule"><strong>8 人上班</strong><span>早1 x2、早2 x1、中1 x1、中2 x1、晚 x3</span></div>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const people = ["王淦", "曹珺茹", "严凤阳", "赵婉茹", "王亚雯", "杨阳", "唐梅", "唐轩", "周蕊"];
+    const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+    const shiftCategory = { "早1": "early", "早2": "early", "11点": "mid", "中1": "mid", "中2": "mid", "晚": "late" };
+    const categoryLabel = { early: "早", mid: "中", late: "晚" };
+    const templates = {
+      9: { "早1": 2, "早2": 1, "11点": 1, "中1": 1, "中2": 1, "晚": 3 },
+      8: { "早1": 2, "早2": 1, "中1": 1, "中2": 1, "晚": 3 },
+      7: { "早1": 2, "早2": 1, "11点": 1, "晚": 3 }
+    };
+    const defaultRest = {
+      "严凤阳": ["周三"],
+      "周蕊": ["周三"],
+      "赵婉茹": ["周四"],
+      "王亚雯": ["周四"],
+      "杨阳": ["周五"],
+      "唐梅": ["周六"],
+      "唐轩": ["周日"]
+    };
+    const defaultBias = {
+      "王淦": "late",
+      "曹珺茹": "late",
+      "严凤阳": "early",
+      "王亚雯": "late",
+      "唐梅": "late",
+      "周蕊": "early"
+    };
+    const current = {
+      schedule: null,
+      reasonsVisible: false,
+      validation: null,
+      reasons: [],
+      score: null
+    };
+
+    function cloneCounts(counts) {
+      return Object.fromEntries(Object.entries(counts).map(([key, value]) => [key, value]));
+    }
+
+    function expandTemplate(template) {
+      const shifts = [];
+      Object.entries(template).forEach(([shift, count]) => {
+        for (let i = 0; i < count; i += 1) shifts.push(shift);
+      });
+      return shifts;
+    }
+
+    function readRestInputs() {
+      const rest = {};
+      people.forEach(name => {
+        rest[name] = new Set();
+        days.forEach(day => {
+          const input = document.querySelector(`[data-rest-name="${name}"][data-rest-day="${day}"]`);
+          if (input && input.checked) rest[name].add(day);
+        });
+      });
+      return rest;
+    }
+
+    function readHistoryInputs() {
+      const bias = {};
+      people.forEach(name => {
+        const active = document.querySelector(`[data-history-name="${name}"].active`);
+        bias[name] = active ? active.dataset.historyBias : "";
+      });
+      return bias;
+    }
+
+    function getMix(schedule) {
+      const mix = {};
+      people.forEach(name => {
+        mix[name] = { early: 0, mid: 0, late: 0 };
+        days.forEach(day => {
+          const cat = shiftCategory[schedule[name][day]];
+          if (cat) mix[name][cat] += 1;
+        });
+      });
+      return mix;
+    }
+
+    function generateDayCandidates(day, rest, template, lockedSchedule, maxCandidates = 900) {
+      const working = people.filter(name => !rest[name].has(day));
+      const fixed = {};
+      const needed = cloneCounts(template);
+
+      working.forEach(name => {
+        const previous = lockedSchedule[name] && lockedSchedule[name][day];
+        if (previous && previous !== "休") {
+          fixed[name] = previous;
+          needed[previous] = (needed[previous] || 0) - 1;
+        }
+      });
+
+      const openPeople = working.filter(name => !fixed[name]);
+      const pool = [];
+      Object.entries(needed).forEach(([shift, count]) => {
+        if (count < 0) throw new Error(`${day} 的固定班次超过模板限制`);
+        for (let i = 0; i < count; i += 1) pool.push(shift);
+      });
+      if (pool.length !== openPeople.length) throw new Error(`${day} 人数与模板不匹配`);
+
+      const candidates = [];
+      const used = new Array(pool.length).fill(false);
+      const sortedPool = pool.slice().sort();
+      const assignment = {};
+
+      function backtrack(index) {
+        if (candidates.length >= maxCandidates) return;
+        if (index === openPeople.length) {
+          const daySchedule = {};
+          people.forEach(name => {
+            if (rest[name].has(day)) daySchedule[name] = "休";
+            else daySchedule[name] = fixed[name] || assignment[name];
+          });
+          candidates.push(daySchedule);
+          return;
+        }
+        const name = openPeople[index];
+        let previousShift = null;
+        for (let i = 0; i < sortedPool.length; i += 1) {
+          if (used[i] || sortedPool[i] === previousShift) continue;
+          previousShift = sortedPool[i];
+          used[i] = true;
+          assignment[name] = sortedPool[i];
+          backtrack(index + 1);
+          delete assignment[name];
+          used[i] = false;
+        }
+      }
+
+      backtrack(0);
+      return candidates;
+    }
+
+    function candidateScore(schedule, bias, day, daySchedule, previousDay) {
+      let score = 0;
+      const temporary = JSON.parse(JSON.stringify(schedule));
+      people.forEach(name => { temporary[name][day] = daySchedule[name]; });
+      const mix = getMix(temporary);
+      const dayIndex = days.indexOf(day);
+
+      people.forEach(name => {
+        const shift = daySchedule[name];
+        if (shift === "休") return;
+        const cat = shiftCategory[shift];
+        const counts = mix[name];
+        const total = counts.early + counts.mid + counts.late;
+        const target = total / 3;
+        score += (counts.early - target) ** 2 * 22;
+        score += (counts.mid - target) ** 2 * 22;
+        score += (counts.late - target) ** 2 * 22;
+        score += Math.max(counts.early, counts.mid, counts.late) - Math.min(counts.early, counts.mid, counts.late);
+
+        if (bias[name] && bias[name] === cat) score += 30;
+
+        if (previousDay) {
+          const prevShift = schedule[name][previousDay];
+          if (prevShift === "晚" && shift === "早1") score += 90;
+        }
+
+        const nextDay = days[dayIndex + 1];
+        const prevDay = days[dayIndex - 1];
+        if (nextDay && temporary[name][nextDay] === "休" && cat !== "early") score += 42;
+        if (prevDay && temporary[name][prevDay] === "休" && shift !== "晚") score += 42;
+      });
+
+      return score;
+    }
+
+    function generateSchedule() {
+      const rest = readRestInputs();
+      const history = readHistoryInputs();
+      const schedule = {};
+      people.forEach(name => {
+        schedule[name] = {};
+        days.forEach(day => {
+          if (rest[name].has(day)) schedule[name][day] = "休";
+        });
+      });
+
+      for (const day of days) {
+        const workingCount = people.filter(name => !rest[name].has(day)).length;
+        const template = templates[workingCount];
+        if (!template) {
+          throw new Error(`${day} 是 ${workingCount} 人上班，当前 demo 只支持 7、8、9 人模板`);
+        }
+        const candidates = generateDayCandidates(day, rest, template, schedule);
+        const previousDay = days[days.indexOf(day) - 1];
+        let best = null;
+        let bestScore = Infinity;
+        candidates.forEach(candidate => {
+          const score = candidateScore(schedule, history, day, candidate, previousDay);
+          if (score < bestScore) {
+            bestScore = score;
+            best = candidate;
+          }
+        });
+        people.forEach(name => { schedule[name][day] = best[name]; });
+      }
+
+      current.schedule = schedule;
+      current.score = Math.round(scoreSchedule(schedule, history));
+      current.validation = validateSchedule(schedule, rest);
+      current.reasons = buildReasons(schedule, history, current.validation);
+      renderAll();
+    }
+
+    function scoreSchedule(schedule, history) {
+      const mix = getMix(schedule);
+      let score = 0;
+      people.forEach(name => {
+        const counts = mix[name];
+        const total = counts.early + counts.mid + counts.late;
+        const target = total / 3;
+        score += Math.round((Math.abs(counts.early - target) + Math.abs(counts.mid - target) + Math.abs(counts.late - target)) * 10);
+        if (history[name]) score += counts[history[name]] * 8;
+      });
+      return score;
+    }
+
+    function validateSchedule(schedule, rest) {
+      const dayChecks = {};
+      days.forEach(day => {
+        const counts = {};
+        people.forEach(name => {
+          const shift = schedule[name][day];
+          counts[shift] = (counts[shift] || 0) + 1;
+        });
+        const workers = people.length - (counts["休"] || 0);
+        const template = templates[workers];
+        let ok = Boolean(template);
+        if (template) {
+          Object.keys(template).forEach(shift => {
+            if ((counts[shift] || 0) !== template[shift]) ok = false;
+          });
+          Object.keys(counts).forEach(shift => {
+            if (shift !== "休" && !template[shift]) ok = false;
+          });
+        }
+        dayChecks[day] = { ok, workers, counts, template };
+      });
+
+      const violations = [];
+      people.forEach(name => {
+        days.forEach((day, index) => {
+          const shift = schedule[name][day];
+          if (shift !== "休") return;
+          const before = days[index - 1];
+          const after = days[index + 1];
+          if (before && !["早1", "早2"].includes(schedule[name][before])) {
+            violations.push(`${name} ${before} 休前不是早班`);
+          }
+          if (after && schedule[name][after] !== "晚") {
+            violations.push(`${name} ${after} 休后不是晚班`);
+          }
+        });
+        for (let index = 1; index < days.length; index += 1) {
+          if (schedule[name][days[index - 1]] === "晚" && schedule[name][days[index]] === "早1") {
+            violations.push(`${name} ${days[index - 1]}晚后接${days[index]}早1`);
+          }
+        }
+      });
+
+      return { dayChecks, violations };
+    }
+
+    function buildReasons(schedule, history, validation) {
+      const mix = getMix(schedule);
+      const reasons = [];
+      people.forEach(name => {
+        const activeBias = history[name];
+        if (activeBias) {
+          reasons.push({
+            type: "info",
+            text: `${name} 标记为上周${categoryLabel[activeBias]}班多，本周${categoryLabel[activeBias]}班为 ${mix[name][activeBias]} 次，生成时已降低该类班次权重。`
+          });
+        }
+        reasons.push({
+          type: "info",
+          text: `${name} 本周统计：早 ${mix[name].early}、中 ${mix[name].mid}、晚 ${mix[name].late}。`
+        });
+      });
+      validation.violations.forEach(text => {
+        reasons.push({ type: "warn", text });
+      });
+      if (!validation.violations.length) {
+        reasons.push({ type: "info", text: "休前早班、休后晚班、晚后不接早1均未发现违反项。" });
+      }
+      return reasons;
+    }
+
+    function renderSchedule() {
+      const table = document.getElementById("scheduleTable");
+      const schedule = current.schedule;
+      let html = "<thead><tr><th>姓名</th>";
+      days.forEach(day => { html += `<th>${day}</th>`; });
+      html += "<th>本周统计</th></tr></thead><tbody>";
+      const mix = schedule ? getMix(schedule) : {};
+      people.forEach(name => {
+        html += `<tr><td class="name">${name}</td>`;
+        days.forEach(day => {
+          const value = schedule ? schedule[name][day] : "";
+          const cls = value === "休" ? "rest" : "shift";
+          html += `<td class="${cls}">${value}</td>`;
+        });
+        const stat = schedule ? `早${mix[name].early} 中${mix[name].mid} 晚${mix[name].late}` : "";
+        html += `<td>${stat}</td></tr>`;
+      });
+      html += '<tr class="check-row"><td class="name">每日校验</td>';
+      days.forEach(day => {
+        if (!current.validation) {
+          html += "<td></td>";
+          return;
+        }
+        const check = current.validation.dayChecks[day];
+        const counts = check.counts;
+        html += `<td><div class="${check.ok ? "ok" : "bad"}">${check.ok ? "通过" : "不通过"} · ${check.workers}人</div><div>早1:${counts["早1"] || 0} 早2:${counts["早2"] || 0} 晚:${counts["晚"] || 0}</div></td>`;
+      });
+      html += "<td></td></tr></tbody>";
+      table.innerHTML = html;
+    }
+
+    function renderMetrics() {
+      const el = document.getElementById("summaryMetrics");
+      if (!current.schedule) {
+        el.innerHTML = [
+          ["模板", "未生成"],
+          ["违反项", "未生成"],
+          ["评分", "-"]
+        ].map(([label, value]) => `<div class="metric"><div class="metric-label">${label}</div><div class="metric-value">${value}</div></div>`).join("");
+        return;
+      }
+      const passedDays = days.filter(day => current.validation.dayChecks[day].ok).length;
+      el.innerHTML = `
+        <div class="metric"><div class="metric-label">模板通过</div><div class="metric-value">${passedDays}/7</div></div>
+        <div class="metric"><div class="metric-label">偏好违反</div><div class="metric-value">${current.validation.violations.length}</div></div>
+        <div class="metric"><div class="metric-label">均衡评分</div><div class="metric-value">${current.score}</div></div>
+      `;
+      document.getElementById("scoreLabel").textContent = `当前评分 ${current.score}`;
+    }
+
+    function renderReasons() {
+      const panel = document.getElementById("reasonPanel");
+      const list = document.getElementById("reasonList");
+      panel.classList.toggle("visible", current.reasonsVisible);
+      list.innerHTML = current.reasons.map(item => `<li class="${item.type === "warn" ? "warn" : ""}">${item.text}</li>`).join("");
+      document.getElementById("toggleReasonsBtn").setAttribute("aria-expanded", String(current.reasonsVisible));
+    }
+
+    function renderAll() {
+      document.getElementById("errorBox").classList.remove("visible");
+      renderSchedule();
+      renderMetrics();
+      renderReasons();
+    }
+
+    function renderInputs() {
+      const restTable = document.getElementById("restInputTable");
+      let restHtml = "<thead><tr><th>姓名</th>";
+      days.forEach(day => { restHtml += `<th>${day}</th>`; });
+      restHtml += "</tr></thead><tbody>";
+      people.forEach(name => {
+        restHtml += `<tr><td class="name">${name}</td>`;
+        days.forEach(day => {
+          const checked = defaultRest[name] && defaultRest[name].includes(day);
+          restHtml += `<td><input type="checkbox" data-rest-name="${name}" data-rest-day="${day}" ${checked ? "checked" : ""} aria-label="${name}${day}休" /></td>`;
+        });
+        restHtml += "</tr>";
+      });
+      restHtml += "</tbody>";
+      restTable.innerHTML = restHtml;
+
+      const historyTable = document.getElementById("historyInputTable");
+      let historyHtml = "<thead><tr><th>姓名</th><th>偏多标记</th></tr></thead><tbody>";
+      people.forEach(name => {
+        historyHtml += `<tr><td class="name">${name}</td>`;
+        historyHtml += `<td><div class="bias-buttons">
+          <button class="bias-btn ${defaultBias[name] === "early" ? "active" : ""}" type="button" data-history-name="${name}" data-history-bias="early" aria-pressed="${defaultBias[name] === "early"}">${categoryLabel.early}班多</button>
+          <button class="bias-btn ${defaultBias[name] === "late" ? "active" : ""}" type="button" data-history-name="${name}" data-history-bias="late" aria-pressed="${defaultBias[name] === "late"}">${categoryLabel.late}班多</button>
+        </div></td>`;
+        historyHtml += "</tr>";
+      });
+      historyHtml += "</tbody>";
+      historyTable.innerHTML = historyHtml;
+
+      historyTable.querySelectorAll(".bias-btn").forEach(button => {
+        button.addEventListener("click", () => {
+          const isActive = button.classList.contains("active");
+          historyTable.querySelectorAll(`[data-history-name="${button.dataset.historyName}"]`).forEach(peer => {
+            peer.classList.remove("active");
+            peer.setAttribute("aria-pressed", "false");
+          });
+          if (!isActive) {
+            button.classList.add("active");
+            button.setAttribute("aria-pressed", "true");
+          }
+        });
+      });
+    }
+
+    function showError(error) {
+      const box = document.getElementById("errorBox");
+      box.textContent = error.message;
+      box.classList.add("visible");
+      document.getElementById("scoreLabel").textContent = "生成失败";
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", () => {
+      try {
+        generateSchedule();
+      } catch (error) {
+        showError(error);
+      }
+    });
+
+    document.getElementById("toggleReasonsBtn").addEventListener("click", () => {
+      current.reasonsVisible = !current.reasonsVisible;
+      renderReasons();
+    });
+
+    document.getElementById("loadExampleBtn").addEventListener("click", () => {
+      renderInputs();
+      try {
+        generateSchedule();
+      } catch (error) {
+        showError(error);
+      }
+    });
+
+    renderInputs();
+    renderAll();
+    generateSchedule();
+  </script>
+</body>
+</html>
